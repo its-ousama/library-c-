@@ -8,19 +8,25 @@ namespace BOOK_API.Controllers
     [Route("api/[controller]")]
     public class BooksController : ControllerBase
     {
+        private readonly BookService _bookService; // Store injected service
+
+        // Constructor Injection
+        public BooksController(BookService bookService)
+        {
+            _bookService = bookService;
+        }
+
         [HttpGet]
         public async Task<ActionResult> GetAllBooks()
         {
-            var service = new BookService();
-            var books = await service.GetAllBooks();
+            var books = await _bookService.GetAllBooks();
             return Ok(books);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult> GetBookById(int id)
         {
-            var service = new BookService();
-            var book = await service.GetBookById(id);
+            var book = await _bookService.GetBookById(id);
 
             if (book == null)
                 return NotFound("Book not found");
@@ -31,8 +37,7 @@ namespace BOOK_API.Controllers
         [HttpGet("author/{authorId}")]
         public async Task<ActionResult> GetBooksByAuthor(int authorId)
         {
-            var service = new BookService();
-            var books = await service.GetBooksByAuthor(authorId);
+            var books = await _bookService.GetBooksByAuthor(authorId);
             return Ok(books);
         }
 
@@ -42,8 +47,7 @@ namespace BOOK_API.Controllers
             if (string.IsNullOrEmpty(input.Title))
                 return BadRequest("Title is required");
 
-            var service = new BookService();
-            var created = await service.CreateBook(input);
+            var created = await _bookService.CreateBook(input);
 
             return CreatedAtAction(nameof(GetBookById), new { id = created.BookId }, created);
         }
@@ -54,8 +58,7 @@ namespace BOOK_API.Controllers
             if (string.IsNullOrEmpty(input.Title))
                 return BadRequest("Title is required");
 
-            var service = new BookService();
-            var updated = await service.UpdateBook(id, input);
+            var updated = await _bookService.UpdateBook(id, input);
 
             if (!updated)
                 return NotFound("Book not found");
@@ -66,8 +69,7 @@ namespace BOOK_API.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteBook(int id)
         {
-            var service = new BookService();
-            var deleted = await service.DeleteBook(id);
+            var deleted = await _bookService.DeleteBook(id);
 
             if (!deleted)
                 return NotFound("Book not found");

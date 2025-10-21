@@ -2,24 +2,25 @@
 using BOOK_API.Data;
 using BOOK_API.Models;
 using BOOK_API.DTOs;
+using System.Linq;
 
 namespace BOOK_API.Services
 {
     public class BookService
     {
-        private string connectionStr = "Server=tcp:epita.database.windows.net,1433;Initial Catalog=EPITA-C#;Persist Security Info=False;User ID=ousama;Password=terry.Zoro69;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+        private readonly AppDbContext _context;
 
-        private AppDbContext GetDbContext()
+        // Constructor Injection
+        public BookService(AppDbContext context)
         {
-            var builder = new DbContextOptionsBuilder<AppDbContext>();
-            builder.UseSqlServer(connectionStr);
-            return new AppDbContext(builder.Options);
+            _context = context;
         }
 
         public async Task<List<BookDTO>> GetAllBooks()
         {
-            var context = GetDbContext();
-            var books = await context.Books.Include(b => b.Author).ToListAsync();
+            var books = await _context.Books
+                .Include(b => b.Author)
+                .ToListAsync();
 
             var result = new List<BookDTO>();
             foreach (var book in books)
@@ -32,25 +33,24 @@ namespace BOOK_API.Services
                     ISBN = book.ISBN,
                     PublishedDate = book.PublishedDate,
                     AuthorId = book.AuthorId,
-                    AuthorName = book.Author.FirstName + " " + book.Author.LastName
+                    // Use null-conditional access (?.)
+                    AuthorName = book.Author?.FirstName + " " + book.Author?.LastName
                 };
                 result.Add(dto);
             }
 
-            context.Dispose();
             return result;
         }
 
-        public async Task<BookDTO> GetBookById(int id)
+        // Changed return type to BookDTO? to fix warning CS8603
+        public async Task<BookDTO?> GetBookById(int id)
         {
-            var context = GetDbContext();
-            var book = await context.Books
+            var book = await _context.Books
                 .Include(b => b.Author)
                 .FirstOrDefaultAsync(b => b.BookId == id);
 
             if (book == null)
             {
-                context.Dispose();
                 return null;
             }
 
@@ -62,30 +62,33 @@ namespace BOOK_API.Services
                 ISBN = book.ISBN,
                 PublishedDate = book.PublishedDate,
                 AuthorId = book.AuthorId,
-                AuthorName = book.Author.FirstName + " " + book.Author.LastName
+                AuthorName = book.Author?.FirstName + " " + book.Author?.LastName
             };
 
-            context.Dispose();
             return dto;
         }
 
         public async Task<BookDTO> CreateBook(BookInputDTO input)
         {
-            var context = GetDbContext();
-
             var book = new Book();
             book.Title = input.Title;
             book.Genre = input.Genre;
             book.ISBN = input.ISBN;
-            book.PublishedDate = input.PublishedDate;
+
+            // FIX for CS0029: Safely cast to DateTimeOffset? and extract DateTime
+            book.PublishedDate = ((DateTimeOffset?)input.PublishedDate)?.DateTime;
+
             book.AuthorId = input.AuthorId;
+            book.PublisherId = 1; // Assuming default PublisherId = 1 as per AppDbContext seed data
 
-            context.Books.Add(book);
-            await context.SaveChangesAsync();
+            _context.Books.Add(book);
+            await _context.SaveChangesAsync();
 
-            var created = await context.Books
+            var created = await _context.Books
                 .Include(b => b.Author)
                 .FirstOrDefaultAsync(b => b.BookId == book.BookId);
+
+            if (created == null) return new BookDTO();
 
             var dto = new BookDTO
             {
@@ -95,56 +98,51 @@ namespace BOOK_API.Services
                 ISBN = created.ISBN,
                 PublishedDate = created.PublishedDate,
                 AuthorId = created.AuthorId,
-                AuthorName = created.Author.FirstName + " " + created.Author.LastName
+                AuthorName = created.Author?.FirstName + " " + created.Author?.LastName
             };
 
-            context.Dispose();
             return dto;
         }
 
         public async Task<bool> UpdateBook(int id, BookInputDTO input)
         {
-            var context = GetDbContext();
-            var book = await context.Books.FindAsync(id);
+            var book = await _context.Books.FindAsync(id);
 
             if (book == null)
             {
-                context.Dispose();
                 return false;
             }
 
             book.Title = input.Title;
             book.Genre = input.Genre;
             book.ISBN = input.ISBN;
-            book.PublishedDate = input.PublishedDate;
+
+            // FIX for CS0029: Safely cast to DateTimeOffset? and extract DateTime
+            book.PublishedDate = ((DateTimeOffset?)input.PublishedDate)?.DateTime;
+
             book.AuthorId = input.AuthorId;
 
-            await context.SaveChangesAsync();
-            context.Dispose();
+            await _context.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> DeleteBook(int id)
         {
-            var context = GetDbContext();
-            var book = await context.Books.FindAsync(id);
+            var book = await _context.Books.FindAsync(id);
 
             if (book == null)
             {
-                context.Dispose();
                 return false;
             }
 
-            context.Books.Remove(book);
-            await context.SaveChangesAsync();
-            context.Dispose();
+            _context.Books.Remove(book);
+            await _context.SaveChangesAsync();
             return true;
         }
 
         public async Task<List<BookDTO>> GetBooksByAuthor(int authorId)
         {
-            var context = GetDbContext();
-            var books = await context.Books
+            var books = await _context.Books
                 .Include(b => b.Author)
                 .Where(b => b.AuthorId == authorId)
                 .ToListAsync();
@@ -161,12 +159,11 @@ namespace BOOK_API.Services
                     ISBN = book.ISBN,
                     PublishedDate = book.PublishedDate,
                     AuthorId = book.AuthorId,
-                    AuthorName = book.Author.FirstName + " " + book.Author.LastName
+                    AuthorName = book.Author?.FirstName + " " + book.Author?.LastName
                 };
                 result.Add(dto);
             }
 
-            context.Dispose();
             return result;
         }
     }

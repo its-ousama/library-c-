@@ -2,24 +2,23 @@
 using BOOK_API.Data;
 using BOOK_API.Models;
 using BOOK_API.DTOs;
+using System.Linq;
 
 namespace BOOK_API.Services
 {
     public class AuthorService
     {
-        private string connectionStr = "Server=tcp:epita.database.windows.net,1433;Initial Catalog=EPITA-C#;Persist Security Info=False;User ID=ousama;Password=terry.Zoro69;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+        private readonly AppDbContext _context;
 
-        private AppDbContext GetDbContext()
+        // Constructor Injection
+        public AuthorService(AppDbContext context)
         {
-            var builder = new DbContextOptionsBuilder<AppDbContext>();
-            builder.UseSqlServer(connectionStr);
-            return new AppDbContext(builder.Options);
+            _context = context;
         }
 
         public async Task<List<AuthorDTO>> GetAllAuthors()
         {
-            var context = GetDbContext();
-            var authors = await context.Authors.Include(a => a.Books).ToListAsync();
+            var authors = await _context.Authors.Include(a => a.Books).ToListAsync();
 
             var result = new List<AuthorDTO>();
             foreach (var author in authors)
@@ -53,20 +52,18 @@ namespace BOOK_API.Services
                 result.Add(dto);
             }
 
-            context.Dispose();
             return result;
         }
 
-        public async Task<AuthorDTO> GetAuthorById(int id)
+        // Changed return type to AuthorDTO? to fix warning CS8603
+        public async Task<AuthorDTO?> GetAuthorById(int id)
         {
-            var context = GetDbContext();
-            var author = await context.Authors
+            var author = await _context.Authors
                 .Include(a => a.Books)
                 .FirstOrDefaultAsync(a => a.AuthorId == id);
 
             if (author == null)
             {
-                context.Dispose();
                 return null;
             }
 
@@ -96,14 +93,11 @@ namespace BOOK_API.Services
                 dto.Books.Add(bookDto);
             }
 
-            context.Dispose();
             return dto;
         }
 
         public async Task<AuthorDTO> CreateAuthor(AuthorInputDTO input)
         {
-            var context = GetDbContext();
-
             var author = new Author();
             author.FirstName = input.FirstName;
             author.LastName = input.LastName;
@@ -111,32 +105,29 @@ namespace BOOK_API.Services
             author.Nationality = input.Nationality;
             author.Biography = input.Biography;
 
-            context.Authors.Add(author);
-            await context.SaveChangesAsync();
+            _context.Authors.Add(author);
+            await _context.SaveChangesAsync();
 
             var dto = new AuthorDTO
             {
                 AuthorId = author.AuthorId,
                 FirstName = author.FirstName,
                 LastName = author.LastName,
-                BirthDate = author.BirthDate,
-                Nationality = author.Nationality,
-                Biography = author.Biography,
+                BirthDate = input.BirthDate,
+                Nationality = input.Nationality,
+                Biography = input.Biography,
                 Books = new List<BookDTO>()
             };
 
-            context.Dispose();
             return dto;
         }
 
         public async Task<bool> UpdateAuthor(int id, AuthorInputDTO input)
         {
-            var context = GetDbContext();
-            var author = await context.Authors.FindAsync(id);
+            var author = await _context.Authors.FindAsync(id);
 
             if (author == null)
             {
-                context.Dispose();
                 return false;
             }
 
@@ -146,25 +137,21 @@ namespace BOOK_API.Services
             author.Nationality = input.Nationality;
             author.Biography = input.Biography;
 
-            await context.SaveChangesAsync();
-            context.Dispose();
+            await _context.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> DeleteAuthor(int id)
         {
-            var context = GetDbContext();
-            var author = await context.Authors.FindAsync(id);
+            var author = await _context.Authors.FindAsync(id);
 
             if (author == null)
             {
-                context.Dispose();
                 return false;
             }
 
-            context.Authors.Remove(author);
-            await context.SaveChangesAsync();
-            context.Dispose();
+            _context.Authors.Remove(author);
+            await _context.SaveChangesAsync();
             return true;
         }
     }

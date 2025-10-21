@@ -1,6 +1,50 @@
 @BOOK_API_HostAddress = http://localhost:5054
 
-GET {{BOOK_API_HostAddress}}/weatherforecast/
+// Test 1: Get All Authors (Verifies DB connection, DI, and seed data)
+GET {{BOOK_API_HostAddress}}/api/Authors
+Accept: application/json
+
+###
+
+// Test 2: Get Books by Author (Verifies Author-Book relationship)
+// George Orwell's ID is 1
+GET {{BOOK_API_HostAddress}}/api/Books/author/1
+Accept: application/json
+
+###
+
+// Test 3: Create a NEW Author (Verifies POST operation)
+POST {{BOOK_API_HostAddress}}/api/Authors
+Content-Type: application/json
+
+{
+    "firstName": "Jane",
+    "lastName": "Austen",
+    "birthDate": "1775-12-16",
+    "nationality": "English",
+    "biography": "English novelist known primarily for her six major novels."
+}
+
+###
+
+// Test 4: Create a NEW Book (Verifies POST and PublisherId assumption)
+// Uses Author ID 2 (J.K. Rowling)
+POST {{BOOK_API_HostAddress}}/api/Books
+Content-Type: application/json
+
+{
+    "title": "Harry Potter and the Sorcerer's Stone",
+    "genre": "Fantasy",
+    "isbn": "978-0747532743",
+    "publishedDate": "1997-06-26",
+    "authorId": 2
+}
+
+###
+
+// Test 5: Delete a Book (Assumes Book ID 3 was created in Test 4)
+// Use the BookId returned from the previous POST call. If running sequentially, it will be 3.
+DELETE {{BOOK_API_HostAddress}}/api/Books/3
 Accept: application/json
 
 ###
